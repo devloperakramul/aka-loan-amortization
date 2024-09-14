@@ -9,7 +9,8 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         loanStartDate: new Date(loan.loanStartDate)
     }));
 
-    console.log(JSON.stringify(loans, null, 2));
+    // console.log(JSON.stringify(loans, null, 2));
+    console.table(loans);
 
     // *****************helpers******************************
     let schedule = [];
@@ -55,13 +56,18 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
             } else {
                 return a.loanAmount - b.loanAmount;
             }
-        })[0];
+        });
     };
 
-    const findHighestInterestLoan = (loans) => loans.reduce((max, loan) => loan.annualInterestRate > max.annualInterestRate ? loan : max, loans[0]);
-    const findLowestBalanceLoan = (loans) => loans.reduce((min, loan) => loan.loanAmount < min.loanAmount ? loan : min, loans[0]);
-    const findHighestPriorityLoan = (loans) => loans.reduce((min, loan) => loan.priority < min.priority ? loan : min, loans[0]);
-    const findLowestPriorityLoan = (loans) => loans.reduce((max, loan) => loan.priority > max.priority ? loan : max, loans[0]);
+    // const findHighestInterestLoan = (loans) => loans.reduce((max, loan) => loan.annualInterestRate > max.annualInterestRate ? loan : max, loans[0]);
+    const findHighestInterestLoan = (loans) => loans.slice().sort((a, b) => b.annualInterestRate - a.annualInterestRate);
+    // const findLowestBalanceLoan = (loans) => loans.reduce((min, loan) => loan.loanAmount < min.loanAmount ? loan : min, loans[0]);
+    const findLowestBalanceLoan = (loans) => loans.slice().sort((a, b) => b.loanAmount - a.loanAmount);
+
+    // const findHighestPriorityLoan = (loans) => loans.reduce((min, loan) => loan.priority < min.priority ? loan : min, loans[0]);
+    const findHighestPriorityLoan = (loans) => loans.slice().sort((a, b) => b.priority - a.priority);
+
+    // const findLowestPriorityLoan = (loans) => loans.reduce((max, loan) => loan.priority > max.priority ? loan : max, loans[0]);
 
     // Sorting function using sortConfig
     const manualSort = (loans, sortConfig) => {
@@ -143,9 +149,11 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
             if (loans[i].loanStartDate.toISOString().split('T')[0] === earliestDate.toISOString().split('T')[0]) {
                 let loan = loans.splice(i, 1)[0];
+                // let loan = loans[i];
                 loan.loanStartDate = addOneMonth(loan.loanStartDate);
 
                 if (new Date(earliestDate).getMonth() == currentMonth) {
+
                     openingBalance = setOpeningBalance(loan);
                     interestAmount = calculateMonthlyInterest(openingBalance, loan);
 
@@ -170,33 +178,37 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
                     });
 
                     preSameMonth.push({ ...loan });
+
                 } else {
                     let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
                     let snowBallBudget = currentMonthBudget;
 
                     //*******************snowBall start*********************************
+
+
+
                     let SnowName;
                     while (snowBallBudget > 0 && sameMonth.some(loan => loan.loanAmount > 0)) {
                         let snowBallLoan;
                         switch (strategy) {
                             case '2s':
-                                snowBallLoan = findSmartestInterestLoan(sameMonth);
+                                snowBallLoan = findSmartestInterestLoan(sameMonth)[0];
                                 SnowName = 'Smart Pay';
                                 break;
                             case '3a':
-                                snowBallLoan = findHighestInterestLoan(sameMonth);
+                                snowBallLoan = findHighestInterestLoan(sameMonth)[0];
                                 SnowName = 'Avalanche High Interest';
                                 break;
                             case '4s':
-                                snowBallLoan = findLowestBalanceLoan(sameMonth);
+                                snowBallLoan = findLowestBalanceLoan(sameMonth)[0];
                                 SnowName = 'Small Balance';
                                 break;
                             case '5h':
-                                snowBallLoan = findHighestPriorityLoan(sameMonth);
+                                snowBallLoan = findHighestPriorityLoan(sameMonth)[0];
                                 SnowName = 'Highest Priority';
                                 break;
                             case '6l':
-                                snowBallLoan = findLowestPriorityLoan(sameMonth);
+                                snowBallLoan = findHighestPriorityLoan(sameMonth)[-1];
                                 SnowName = 'Lowest Priority';
                                 break;
                             case '1n':
@@ -246,6 +258,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
                 if (loan.loanAmount > 0) {
                     loans.push(loan);
+                    // loan[i] = loan;
                 }
             }
         }
@@ -266,7 +279,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         };
     });
 
-    console.log(JSON.stringify(schedule, null, 2));
+    // console.log(JSON.stringify(schedule, null, 2));
     return finalData;
 };
 
