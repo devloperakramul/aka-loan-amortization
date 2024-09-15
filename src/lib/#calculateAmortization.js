@@ -164,7 +164,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
             remainingBudget: currentMonthBudget.toFixed(2),
             snowBall: '',
             test: 'if statement',
-            remainingBalance: `${iterations} , ${countForLoop} ,${position}`,
+            remainingBalance: `${position}`,
         });
 
         return { updatedLoan: loan, updatedBudget: currentMonthBudget };
@@ -198,14 +198,15 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
                 if (new Date(earliestDate).getMonth() == currentMonth) {
 
-                    let position = 'if';
+                    let position = `${iterations} , ${countForLoop} , if`;
 
                     let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop, position);
 
                     currentMonthBudget = updatedBudget;
 
-                    preSameMonth.push({ ...updatedLoan, });
+                    preSameMonth.push({ ...updatedLoan, position: position });
 
+                    preSameMonth.push({ ...loan, position: position });
 
                 } else {
                     let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
@@ -228,13 +229,13 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
                     currentMonthBudget = monthlyBudget;
                     currentMonth = new Date(earliestDate).getMonth();
 
-                    let position = 'else';
+                    let position = `${iterations} , ${countForLoop} , else`;
 
                     let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop, position);
 
                     currentMonthBudget = updatedBudget;
 
-                    preSameMonth.push({ ...updatedLoan });
+                    preSameMonth.push({ ...updatedLoan, position: position });
                 }
 
                 if (loan.loanAmount > 0) {

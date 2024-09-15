@@ -33,7 +33,13 @@ const Page = () => {
         const fetchLoans = async () => {
             const response = await fetch('/api/loans');
             const result = await response.json();
-            setLoan(result.data);
+
+            setLoan(result.data.map(loan => ({
+                ...loan,
+                loanStartDate: new Date(loan.loanStartDate)
+            }))
+
+            );
         }
 
         if (monthlyBudget !== 0) {
