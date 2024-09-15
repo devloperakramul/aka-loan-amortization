@@ -34,12 +34,8 @@ const Page = () => {
             const response = await fetch('/api/loans');
             const result = await response.json();
 
-            setLoan(result.data.map(loan => ({
-                ...loan,
-                loanStartDate: new Date(loan.loanStartDate)
-            }))
 
-            );
+            setLoan(result.data);
         }
 
         if (monthlyBudget !== 0) {
@@ -112,10 +108,10 @@ const Page = () => {
                 </select>
             </div>
 
-            <h1 className="text-2xl font-bold mb-4">All Loans Amortization Schedule, Budget :: {monthlyBudget}</h1>
-            <div className="overflow-x-auto">
+            <h1 className="text-2xl font-bold mb-4 ">All Loans Amortization Schedule, Budget :: {monthlyBudget}, Strategy :: {strategy}</h1>
+            <div className="overflow-x-auto ">
                 <table className="min-w-full bg-white border border-gray-200">
-                    <thead>
+                    <thead >
                         <tr>
                             <th className="px-4 py-2 border-b">Sl No</th>
                             <th className="px-4 py-2 border-b">Date</th>

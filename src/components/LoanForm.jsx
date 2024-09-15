@@ -61,7 +61,7 @@ const LoanForm = ({ loan, onSave, onClose }) => {
 
     // Validate form data
     const validateForm = () => {
-        const { loanAmount, annualInterestRate, emiAmount } = loanForm;
+        const { loanAmount, emiAmount } = loanForm;
         let newErrors = {};
         let isValid = true;
 

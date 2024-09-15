@@ -12,21 +12,21 @@ interface Loan {
   id: string;
   loanName: string;
   loanAmount: number;
-  annualInterestRate: number;
+  annualInterestRate?: number;
   emiAmount: number;
-  loanStartDate: string;
+  loanStartDate: Date;
   priority: number;
   minimumPay: number;
 }
 
 const Home = () => {
-  const [loans, setLoans] = useState([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentLoan, setCurrentLoan] = useState(null);
+  const [currentLoan, setCurrentLoan] = useState<Loan | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'ascending' });
-  const [strategy, setStrategy] = useState('2s'); // Default strategy
-  const [totalLoan, setTotalLoan] = useState()
+  const [strategy, setStrategy] = useState('2s');
+  const [totalLoan, setTotalLoan] = useState<number>(0);
   const [totalMonthlyInterest, setTotalMonthlyInterest] = useState(0);
   const [totalMinimumMonthlyPay, setTotalMinimumMonthlyPay] = useState(0);
   const [totalEMI, setTotalEMI] = useState(0);
@@ -34,9 +34,36 @@ const Home = () => {
   const [budgetError, setBudgetError] = useState('');
   const [budgetErrorClass, setBudgetErrorClass] = useState('');
 
+
   useEffect(() => {
-    const totalLoan = loans.reduce((sum, loan) => sum + loan.loanAmount, 0);
-    const totalInterest = loans.reduce((sum, loan) => sum + calculateMonthlyInterest(loan.annualInterestRate, loan.loanAmount), 0);
+    const fetchLoans = async () => {
+      try {
+        const response = await fetch('/api/loans');
+        const result = await response.json();
+        setLoans(result.data);
+      } catch (error) {
+        console.error('Error fetching loans:', error);
+      }
+    };
+
+    fetchLoans();
+
+    const savedBudget = localStorage.getItem('monthlyBudget');
+    const savedStrategy = localStorage.getItem('strategy');
+    if (savedBudget) {
+      setMonthlyBudget(parseFloat(savedBudget));
+    }
+    if (savedStrategy) {
+      setStrategy(savedStrategy);
+    }
+
+  }, []);
+
+
+
+  useEffect(() => {
+    const totalLoan: number = loans.reduce((sum, loan) => sum + +loan.loanAmount, 0);
+    const totalInterest = loans.reduce((sum, loan) => sum + (loan.annualInterestRate !== undefined ? calculateMonthlyInterest(loan.annualInterestRate, loan.loanAmount) : 0), 0);
     const totalMinPay = loans.reduce((sum, loan) => sum + +loan.minimumPay, 0);
     const totalEmi = loans.reduce((sum, loan) => sum + loan.emiAmount, 0);
     setTotalLoan(totalLoan);
@@ -45,10 +72,10 @@ const Home = () => {
     setTotalEMI(totalEmi);
   }, [loans]);
 
-  const handleBudgetChange = (e) => {
+  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     setMonthlyBudget(value);
-    localStorage.setItem('monthlyBudget', value);//new code
+    localStorage.setItem('monthlyBudget', value.toString());
 
     if (value < totalMonthlyInterest) {
       setBudgetError('⚠️ Insufficient Budget: Your budget is less than the total monthly interest. Please increase your budget to cover the interest.');
@@ -72,37 +99,13 @@ const Home = () => {
 
   }
 
-  const handleStrategyChange = (e) => {
+  const handleStrategyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setStrategy(e.target.value);
     localStorage.setItem('strategy', e.target.value);
   };
 
 
 
-  useEffect(() => {
-    const fetchLoans = async () => {
-      try {
-        const response = await fetch('/api/loans');
-        const result = await response.json();
-        setLoans(result.data);
-      } catch (error) {
-        console.error('Error fetching loans:', error);
-      }
-    };
-
-    fetchLoans();
-
-    // Load monthlyBudget and strategy from localStorage
-    const savedBudget = localStorage.getItem('monthlyBudget');
-    const savedStrategy = localStorage.getItem('strategy');
-    if (savedBudget) {
-      setMonthlyBudget(parseFloat(savedBudget));
-    }
-    if (savedStrategy) {
-      setStrategy(savedStrategy);
-    }
-
-  }, []);
 
   const openModal = (loan = null) => {
     setCurrentLoan(loan);
@@ -116,10 +119,11 @@ const Home = () => {
     setIsEditing(false);
   };
 
-  const saveLoan = async (loan) => {
+  const saveLoan = async (loan: Loan) => {
     try {
       const method = isEditing ? 'PUT' : 'POST';
-      const url = isEditing ? `/api/loans/${currentLoan.id}` : '/api/loans';
+      // const url = isEditing ? `/api/loans/${currentLoan.id}` : '/api/loans';
+      const url = isEditing && currentLoan !== null ? `/api/loans/${currentLoan.id}` : '/api/loans';
       const response = await fetch(url, {
         method,
         headers: {
@@ -130,8 +134,11 @@ const Home = () => {
 
       const result = await response.json();
       if (response.ok) {
+        // const updatedLoans = isEditing
+        //   ? loans.map((item) => (item.id === currentLoan.id ? result.result : item))
+        //   : [...loans, result.result];
         const updatedLoans = isEditing
-          ? loans.map((item) => (item.id === currentLoan.id ? result.result : item))
+          ? loans.map((item) => (item.id === currentLoan?.id ? result.result : item))
           : [...loans, result.result];
         setLoans(updatedLoans);
         closeModal();
@@ -143,7 +150,7 @@ const Home = () => {
     }
   };
 
-  const deleteLoan = async (id) => {
+  const deleteLoan = async (id: string) => {
     try {
       await fetch(`/api/loans/${id}`, {
         method: 'DELETE',
@@ -154,17 +161,22 @@ const Home = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  // const formatDate = (dateString) => {
+  //   const options = { year: 'numeric', month: 'long', day: 'numeric' };
+  //   return new Date(dateString).toLocaleDateString(undefined, options);
+  // };
+  const formatDate = (dateString: string) => {
+    // const options = { year: 'numeric', month: 'long', day: 'numeric' };
+    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: '2-digit' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  const calculateMonthlyInterest = (annualInterestRate, loanAmount) => {
-    const monthlyInterestRate = parseFloat(annualInterestRate) / 12 / 100;
-    return parseFloat(loanAmount) * monthlyInterestRate;
+  const calculateMonthlyInterest = (annualInterestRate: number, loanAmount: number): number => {
+    const monthlyInterestRate = (annualInterestRate) / 12 / 100;
+    return (loanAmount) * monthlyInterestRate;
   };
 
-  const handleSort = (key) => {
+  const handleSort = (key: typeof sortConfig.key) => {
     let direction = 'ascending';
     if (sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
@@ -173,7 +185,7 @@ const Home = () => {
     localStorage.setItem('sortConfig', JSON.stringify({ key, direction }));
   };
 
-  const handlePriorityChange = async (id, newPriority) => {
+  const handlePriorityChange = async (id: string, newPriority: number) => {
     try {
       const response = await fetch(`/api/loans/${id}`, {
         method: 'PUT',
@@ -187,13 +199,12 @@ const Home = () => {
         throw new Error('Failed to update priority');
       }
 
-      const result = await response.json();
       setLoans(loans.map((loan) => (loan.id === id ? { ...loan, priority: newPriority } : loan)));
     } catch (error) {
       console.error('Error updating priority:', error);
     }
   };
-  const handleMinimumPayChange = async (id, newMinimumPay) => {
+  const handleMinimumPayChange = async (id: string, newMinimumPay: number) => {
     try {
       const response = await fetch(`/api/loans/${id}`, {
         method: 'PUT',
@@ -207,7 +218,6 @@ const Home = () => {
         throw new Error('Failed to update priority');
       }
 
-      const result = await response.json();
       setLoans(loans.map((loan) => (loan.id === id ? { ...loan, minimumPay: newMinimumPay } : loan)));
     } catch (error) {
       console.error('Error updating priority:', error);
@@ -248,12 +258,12 @@ const Home = () => {
               value={strategy}
               onChange={handleStrategyChange}
               className="border border-gray-300 p-2 rounded">
-              <option value="1n">No Strategy (Not Recommended) </option>
-              <option value="2s">Smart ( Priority + Avalanche + Snowball)</option>
-              <option value="3a">Avalanche (Highest Interest First)</option>
-              <option value="4s">Snowball (Lowest Balance First)</option>
-              <option value="5h">Highest Priority First </option>
-              <option value="6l">Lowest Priority First </option>
+              <option value="No Strategy">No Strategy (Not Recommended) </option>
+              <option value="Smart">Smart ( Priority + Avalanche + Snowball)</option>
+              <option value="Avalanche">Avalanche (Highest Interest First)</option>
+              <option value="Snowball">Snowball (Lowest Balance First)</option>
+              <option value="Highest Priority">Highest Priority First </option>
+              <option value="Lowest Priority">Lowest Priority First </option>
             </select>
             <p className='text-center ml-20'>Lower numbers indicate higher priority</p>
           </div>
@@ -315,7 +325,7 @@ const Home = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedLoans.map((loan, index) => (
+              {sortedLoans.map((loan) => (
                 <tr key={loan.id}>
                   <td className="border px-4 py-2">{loan.id}</td> {/* Serial Number Column */}
                   <td className="border px-4 py-2">
@@ -332,7 +342,7 @@ const Home = () => {
                   <td className="border px-4 py-2"><input
                     type="text"
                     value={loan.minimumPay}
-                    onChange={(e) => handleMinimumPayChange(loan.id, e.target.value)}
+                    onChange={(e) => handleMinimumPayChange(loan.id, Number(e.target.value))}
                     className="w-full border border-gray-300 p-1 rounded"
                   /></td>
 

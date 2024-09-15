@@ -10,11 +10,11 @@ const links = [
     title: "Home",
     url: "/",
   },
-  {
-    id: 2,
-    title: "Loans",
-    url: "/loans",
-  },
+  // {
+  //   id: 2,
+  //   title: "Loans",
+  //   url: "/loans",
+  // },
   {
     id: 3,
     title: "Combined",
