@@ -142,6 +142,33 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         return openingBalance;
     };
 
+    /////////////////////////
+    const processLoanPayment = (loan, currentMonthBudget, iterations, countForLoop) => {
+        const openingBalance = setOpeningBalance(loan);
+        const interestAmount = calculateMonthlyInterest(openingBalance, loan);
+        const payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
+        const principalPart = payment - interestAmount;
+        currentMonthBudget -= payment;
+        loan.loanAmount = openingBalance - principalPart;
+
+        schedule.push({
+            id: loan.id,
+            loanName: loan.loanName,
+            date: new Date(loan.loanStartDate),
+            loanAmount: openingBalance.toFixed(2),
+            interestPart: interestAmount.toFixed(2),
+            principalPart: principalPart.toFixed(2),
+            minimumPay: loan.minimumPay.toFixed(2),
+            balance: loan.loanAmount.toFixed(2),
+            remainingBudget: currentMonthBudget.toFixed(2),
+            snowBall: '',
+            test: 'if statement',
+            remainingBalance: `${iterations} , ${countForLoop} ,if`,
+        });
+
+        return { updatedLoan: loan, updatedBudget: currentMonthBudget };
+    };
+
     // **************************main******************************
     loans.forEach(loan => {
         schedule.push({
@@ -170,30 +197,35 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
                 if (new Date(earliestDate).getMonth() == currentMonth) {
 
-                    openingBalance = setOpeningBalance(loan);
-                    interestAmount = calculateMonthlyInterest(openingBalance, loan);
+                    // openingBalance = setOpeningBalance(loan);
+                    // interestAmount = calculateMonthlyInterest(openingBalance, loan);
 
-                    payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
-                    principalPart = payment - interestAmount;
-                    currentMonthBudget -= payment;
-                    loan.loanAmount = openingBalance - principalPart;
+                    // payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
+                    // principalPart = payment - interestAmount;
+                    // currentMonthBudget -= payment;
+                    // loan.loanAmount = openingBalance - principalPart;
 
-                    schedule.push({
-                        id: loan.id,
-                        loanName: loan.loanName,
-                        date: new Date(loan.loanStartDate),
-                        loanAmount: openingBalance.toFixed(2),
-                        interestPart: interestAmount.toFixed(2),
-                        principalPart: principalPart.toFixed(2),
-                        minimumPay: loan.minimumPay.toFixed(2),
-                        balance: loan.loanAmount.toFixed(2),
-                        remainingBudget: currentMonthBudget.toFixed(2),
-                        snowBall: '',
-                        test: 'if statement',
-                        remainingBalance: `${iterations} , ${countForLoop} ,if`
-                    });
+                    // schedule.push({
+                    //     id: loan.id,
+                    //     loanName: loan.loanName,
+                    //     date: new Date(loan.loanStartDate),
+                    //     loanAmount: openingBalance.toFixed(2),
+                    //     interestPart: interestAmount.toFixed(2),
+                    //     principalPart: principalPart.toFixed(2),
+                    //     minimumPay: loan.minimumPay.toFixed(2),
+                    //     balance: loan.loanAmount.toFixed(2),
+                    //     remainingBudget: currentMonthBudget.toFixed(2),
+                    //     snowBall: '',
+                    //     test: 'if statement',
+                    //     remainingBalance: `${iterations} , ${countForLoop} ,if`
+                    // });
 
-                    preSameMonth.push({ ...loan });
+                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop);
+
+                    currentMonthBudget = updatedBudget;
+
+                    preSameMonth.push({ ...updatedLoan });
+                    // preSameMonth.push({ ...loan });
 
                 } else {
                     let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
@@ -216,29 +248,34 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
                     currentMonthBudget = monthlyBudget;
                     currentMonth = new Date(earliestDate).getMonth();
 
-                    openingBalance = setOpeningBalance(loan);
-                    interestAmount = calculateMonthlyInterest(openingBalance, loan);
-                    payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
-                    principalPart = payment - interestAmount;
-                    currentMonthBudget -= payment;
-                    loan.loanAmount = openingBalance - principalPart;
+                    // openingBalance = setOpeningBalance(loan);
+                    // interestAmount = calculateMonthlyInterest(openingBalance, loan);
+                    // payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
+                    // principalPart = payment - interestAmount;
+                    // currentMonthBudget -= payment;
+                    // loan.loanAmount = openingBalance - principalPart;
 
-                    schedule.push({
-                        id: loan.id,
-                        loanName: loan.loanName,
-                        date: new Date(loan.loanStartDate),
-                        loanAmount: openingBalance.toFixed(2),
-                        interestPart: interestAmount.toFixed(2),
-                        principalPart: principalPart.toFixed(2),
-                        minimumPay: loan.minimumPay.toFixed(2),
-                        balance: loan.loanAmount.toFixed(2),
-                        remainingBudget: currentMonthBudget.toFixed(2),
-                        snowBall: '',
-                        test: 'else',
-                        remainingBalance: `${iterations} , ${countForLoop} , else`
-                    });
+                    // schedule.push({
+                    //     id: loan.id,
+                    //     loanName: loan.loanName,
+                    //     date: new Date(loan.loanStartDate),
+                    //     loanAmount: openingBalance.toFixed(2),
+                    //     interestPart: interestAmount.toFixed(2),
+                    //     principalPart: principalPart.toFixed(2),
+                    //     minimumPay: loan.minimumPay.toFixed(2),
+                    //     balance: loan.loanAmount.toFixed(2),
+                    //     remainingBudget: currentMonthBudget.toFixed(2),
+                    //     snowBall: '',
+                    //     test: 'else',
+                    //     remainingBalance: `${iterations} , ${countForLoop} , else`
+                    // });
 
-                    preSameMonth.push({ ...loan });
+                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop);
+
+                    currentMonthBudget = updatedBudget;
+
+                    preSameMonth.push({ ...updatedLoan });
+                    // preSameMonth.push({ ...loan });
                 }
 
                 if (loan.loanAmount > 0) {
