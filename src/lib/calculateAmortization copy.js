@@ -45,55 +45,34 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         const monthlyInterestRate = loan.annualInterestRate / 12 / 100;
         return openingBalance * monthlyInterestRate;
     };
-    ////////////////////////
-    const sortLoans = (loans, strategy, sortConfig) => {
-        let SnowName = '';
-        let snowBallLoan = null;
 
-        switch (strategy) {
-            case '2s':
-                snowBallLoan = loans.slice().sort((a, b) => {
-                    if (a.priority !== b.priority) return a.priority - b.priority;
-                    if (a.annualInterestRate !== b.annualInterestRate) return b.annualInterestRate - a.annualInterestRate;
-                    return a.loanAmount - b.loanAmount;
-                });
-                SnowName = 'Smart Pay';
-                break;
-            case '3a':
-                snowBallLoan = loans.slice().sort((a, b) => b.annualInterestRate - a.annualInterestRate);
-                SnowName = 'Avalanche High Interest';
-                break;
-            case '4s':
-                snowBallLoan = loans.slice().sort((a, b) => a.loanAmount - b.loanAmount);
-                SnowName = 'Small Balance';
-                break;
-            case '5h':
-                snowBallLoan = loans.slice().sort((a, b) => a.priority - b.priority);
-                SnowName = 'Highest Priority';
-                break;
-            case '6l':
-                snowBallLoan = loans.slice().sort((b, a) => a.priority - b.priority);
-                SnowName = 'Lowest Priority';
-                break;
-            case '1n':
-                if (sortConfig) {
-                    snowBallLoan = loans.slice().sort((a, b) => {
-                        const valueA = a[sortConfig.key];
-                        const valueB = b[sortConfig.key];
-                        return sortConfig.direction === 'ascending' ? valueA - valueB : valueB - valueA;
-                    });
-                    SnowName = 'Default';
-                } else {
-                    throw new Error("SortConfig is required for manual sorting.");
-                }
-                break;
-            default:
-                throw new Error("Unknown sorting strategy.");
-        }
-
-        return { snowBallLoan, SnowName };
+    // Helper functions to find the required loan based on the strategy
+    const findSmartestInterestLoan = (loans) => {
+        return loans.sort((a, b) => {
+            if (a.priority !== b.priority) {
+                return a.priority - b.priority;
+            } else if (a.annualInterestRate !== b.annualInterestRate) {
+                return b.annualInterestRate - a.annualInterestRate;
+            } else {
+                return a.loanAmount - b.loanAmount;
+            }
+        });
     };
 
+    const findHighestInterestLoan = (loans) => loans.slice().sort((a, b) => b.annualInterestRate - a.annualInterestRate);
+    const findLowestBalanceLoan = (loans) => loans.slice().sort((a, b) => b.loanAmount - a.loanAmount);
+    const findHighestPriorityLoan = (loans) => loans.slice().sort((a, b) => b.priority - a.priority);
+
+    // Sorting function using sortConfig
+    const manualSort = (loans, sortConfig) => {
+        return loans.sort((a, b) => {
+            const valueA = a[sortConfig.key];
+            const valueB = b[sortConfig.key];
+            return sortConfig.direction === 'ascending' ? valueA - valueB : valueB - valueA;
+        });
+    };
+
+    // Helper function to find the oldest loan
     const findOldestLoan = (loans) => {
         if (!loans.length) return null;
         return loans.reduce((oldestLoan, currentLoan) => currentLoan.loanStartDate < oldestLoan.loanStartDate ? currentLoan : oldestLoan);
@@ -158,14 +137,13 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
     while (loans.some(loan => loan.loanAmount > 0) && iterations < maxIterations) {
         earliestDate = findOldestLoan(loans).loanStartDate;
-        let remainingLoans = [];
 
         for (let i = loans.length - 1; i >= 0; i--) {
             countForLoop++;
 
             if (loans[i].loanStartDate.toISOString().split('T')[0] === earliestDate.toISOString().split('T')[0]) {
-                // let loan = loans.splice(i, 1)[0];
-                let loan = loans[i];
+                let loan = loans.splice(i, 1)[0];
+                // let loan = loans[i];
                 loan.loanStartDate = addOneMonth(loan.loanStartDate);
 
                 if (new Date(earliestDate).getMonth() == currentMonth) {
@@ -201,15 +179,46 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
                     //*******************snowBall start*********************************
 
+
+
+                    let SnowName;
                     while (snowBallBudget > 0 && sameMonth.some(loan => loan.loanAmount > 0)) {
-                        let { snowBallLoan, SnowName } = sortLoans(sameMonth, strategy, sortConfig);
+                        let snowBallLoan;
+                        switch (strategy) {
+                            case '2s':
+                                snowBallLoan = findSmartestInterestLoan(sameMonth)[0];
+                                SnowName = 'Smart Pay';
+                                break;
+                            case '3a':
+                                snowBallLoan = findHighestInterestLoan(sameMonth)[0];
+                                SnowName = 'Avalanche High Interest';
+                                break;
+                            case '4s':
+                                snowBallLoan = findLowestBalanceLoan(sameMonth)[0];
+                                SnowName = 'Small Balance';
+                                break;
+                            case '5h':
+                                snowBallLoan = findHighestPriorityLoan(sameMonth)[0];
+                                SnowName = 'Highest Priority';
+                                break;
+                            case '6l':
+                                snowBallLoan = findHighestPriorityLoan(sameMonth)[-1];
+                                SnowName = 'Lowest Priority';
+                                break;
+                            case '1n':
+                                snowBallLoan = manualSort(sameMonth, sortConfig)[0];
+                                SnowName = 'Default';
+                                break;
+                            default:
+                                throw new Error('Invalid strategy provided.');
+                        }
 
+                        // Pay off current loan with the snowball budget
+                        snowBallBudget = processSnowballLoan(snowBallLoan, snowBallBudget, SnowName);
 
-                        snowBallBudget = processSnowballLoan(snowBallLoan[0], snowBallBudget, SnowName);
-
+                        // Remove fully paid loans from the sameMonth array
                         sameMonth = sameMonth.filter(loan => loan.loanAmount > 0);
                     }
-
                     //*******************snowBall end*********************************
 
                     preSameMonth = [];
@@ -242,16 +251,12 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
                 }
 
                 if (loan.loanAmount > 0) {
-                    // loans.push(loan);
-                    loan[i] = loan;
-                    // remainingLoans.push(loan)
-                }
-                else {
-                    loans.splice(i, 1)[0] // can i use splice here?
+                    loans.push(loan);
+                    // loan[i] = loan;
                 }
             }
         }
-        // loans = remainingLoans;
+
         iterations++;
     }
 
@@ -268,6 +273,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         };
     });
 
+    // console.log(JSON.stringify(schedule, null, 2));
     return finalData;
 };
 
