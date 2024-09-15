@@ -102,8 +102,9 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
     // Helper function to get the forward balance
     const getForwardBalance = (loanId) => forwardBalances[loanId] !== undefined ? forwardBalances[loanId] : null;
 
-    // Process snowball loans
+    // Helper function to process snowball loan
     const processSnowballLoan = (snowBallLoan, snowBallBudget, SnowName) => {
+
         principalPart = Math.min(snowBallBudget, snowBallLoan.loanAmount);
 
         snowBallBudget -= principalPart;
@@ -143,7 +144,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
     };
 
     /////////////////////////
-    const processLoanPayment = (loan, currentMonthBudget, iterations, countForLoop) => {
+    const processLoanPayment = (loan, currentMonthBudget, iterations, countForLoop, position) => {
         const openingBalance = setOpeningBalance(loan);
         const interestAmount = calculateMonthlyInterest(openingBalance, loan);
         const payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
@@ -163,7 +164,7 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
             remainingBudget: currentMonthBudget.toFixed(2),
             snowBall: '',
             test: 'if statement',
-            remainingBalance: `${iterations} , ${countForLoop} ,if`,
+            remainingBalance: `${iterations} , ${countForLoop} ,${position}`,
         });
 
         return { updatedLoan: loan, updatedBudget: currentMonthBudget };
@@ -197,35 +198,14 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
 
                 if (new Date(earliestDate).getMonth() == currentMonth) {
 
-                    // openingBalance = setOpeningBalance(loan);
-                    // interestAmount = calculateMonthlyInterest(openingBalance, loan);
+                    let position = 'if';
 
-                    // payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
-                    // principalPart = payment - interestAmount;
-                    // currentMonthBudget -= payment;
-                    // loan.loanAmount = openingBalance - principalPart;
-
-                    // schedule.push({
-                    //     id: loan.id,
-                    //     loanName: loan.loanName,
-                    //     date: new Date(loan.loanStartDate),
-                    //     loanAmount: openingBalance.toFixed(2),
-                    //     interestPart: interestAmount.toFixed(2),
-                    //     principalPart: principalPart.toFixed(2),
-                    //     minimumPay: loan.minimumPay.toFixed(2),
-                    //     balance: loan.loanAmount.toFixed(2),
-                    //     remainingBudget: currentMonthBudget.toFixed(2),
-                    //     snowBall: '',
-                    //     test: 'if statement',
-                    //     remainingBalance: `${iterations} , ${countForLoop} ,if`
-                    // });
-
-                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop);
+                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop, position);
 
                     currentMonthBudget = updatedBudget;
 
-                    preSameMonth.push({ ...updatedLoan });
-                    // preSameMonth.push({ ...loan });
+                    preSameMonth.push({ ...updatedLoan, });
+
 
                 } else {
                     let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
@@ -248,34 +228,13 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
                     currentMonthBudget = monthlyBudget;
                     currentMonth = new Date(earliestDate).getMonth();
 
-                    // openingBalance = setOpeningBalance(loan);
-                    // interestAmount = calculateMonthlyInterest(openingBalance, loan);
-                    // payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
-                    // principalPart = payment - interestAmount;
-                    // currentMonthBudget -= payment;
-                    // loan.loanAmount = openingBalance - principalPart;
+                    let position = 'else';
 
-                    // schedule.push({
-                    //     id: loan.id,
-                    //     loanName: loan.loanName,
-                    //     date: new Date(loan.loanStartDate),
-                    //     loanAmount: openingBalance.toFixed(2),
-                    //     interestPart: interestAmount.toFixed(2),
-                    //     principalPart: principalPart.toFixed(2),
-                    //     minimumPay: loan.minimumPay.toFixed(2),
-                    //     balance: loan.loanAmount.toFixed(2),
-                    //     remainingBudget: currentMonthBudget.toFixed(2),
-                    //     snowBall: '',
-                    //     test: 'else',
-                    //     remainingBalance: `${iterations} , ${countForLoop} , else`
-                    // });
-
-                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop);
+                    let { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, iterations, countForLoop, position);
 
                     currentMonthBudget = updatedBudget;
 
                     preSameMonth.push({ ...updatedLoan });
-                    // preSameMonth.push({ ...loan });
                 }
 
                 if (loan.loanAmount > 0) {
@@ -305,7 +264,8 @@ const calculateAmortization = (loans, monthlyBudget, strategy, sortConfig) => {
         };
     });
 
-    return finalData;
+    // return finalData;
+    return schedule
 };
 
 export default calculateAmortization;
