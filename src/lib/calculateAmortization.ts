@@ -50,7 +50,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
 
     const schedule: ScheduleEntry[] = [];
-    let preSameMonth: LoanWithPosition[] = [];
+    let preSameMonth: Loan[] = [];
     const forwardBalances: { [key: string]: number } = {};
     let countForLoop = 0;
     let currentMonthBudget = monthlyBudget;
@@ -70,38 +70,38 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
         return openingBalance * monthlyInterestRate;
     };
 
-    const sortLoans = (loans: LoanWithPosition[], strategy: string, sortConfig: SortConfig) => {
-        let SnowName = '';
-        let snowBallLoan = null;
+    const sortLoans = (loans: Loan[], strategy: string, sortConfig: SortConfig) => {
+        let strategyName = '';
+        let sortedLoans = null;
 
         switch (strategy) {
             case 'Smart':
-                snowBallLoan = loans.slice().sort((a, b) => {
+                sortedLoans = loans.slice().sort((a, b) => {
                     if (a.priority !== b.priority) return a.priority - b.priority;
                     if (a.annualInterestRate !== b.annualInterestRate) return b.annualInterestRate - a.annualInterestRate;
                     return a.loanAmount - b.loanAmount;
                 });
-                SnowName = 'Smart Pay';
+                strategyName = 'Smart Pay';
                 break;
             case 'Avalanche':
-                snowBallLoan = loans.slice().sort((a, b) => b.annualInterestRate - a.annualInterestRate);
-                SnowName = 'Avalanche High Interest';
+                sortedLoans = loans.slice().sort((a, b) => b.annualInterestRate - a.annualInterestRate);
+                strategyName = 'Avalanche High Interest';
                 break;
             case 'Snowball':
-                snowBallLoan = loans.slice().sort((a, b) => a.loanAmount - b.loanAmount);
-                SnowName = 'Small Balance';
+                sortedLoans = loans.slice().sort((a, b) => a.loanAmount - b.loanAmount);
+                strategyName = 'Small Balance';
                 break;
             case 'Highest Priority':
-                snowBallLoan = loans.slice().sort((a, b) => a.priority - b.priority);
-                SnowName = 'Highest Priority';
+                sortedLoans = loans.slice().sort((a, b) => a.priority - b.priority);
+                strategyName = 'Highest Priority';
                 break;
             case 'Lowest Priority':
-                snowBallLoan = loans.slice().sort((b, a) => a.priority - b.priority);
-                SnowName = 'Lowest Priority';
+                sortedLoans = loans.slice().sort((b, a) => a.priority - b.priority);
+                strategyName = 'Lowest Priority';
                 break;
             case 'No Strategy':
                 if (sortConfig) {
-                    snowBallLoan = loans.slice().sort((a, b) => {
+                    sortedLoans = loans.slice().sort((a, b) => {
                         const valueA = a[sortConfig.key];
                         const valueB = b[sortConfig.key];
 
@@ -120,7 +120,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
                         return 0;
                     });
-                    SnowName = 'Default';
+                    strategyName = 'Default';
                 } else {
                     throw new Error("SortConfig is required for manual sorting.");
                 }
@@ -129,7 +129,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
                 throw new Error("Unknown sorting strategy.");
         }
 
-        return { snowBallLoan, SnowName };
+        return { sortedLoans, strategyName };
     };
 
     const findOldestLoan = (loans: Loan[]): Loan => {
@@ -140,37 +140,46 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
 
 
-    const processSnowballLoan = (snowBallLoan: Loan, snowBallBudget: number, SnowName: string) => {
+    const processSnowballLoan = (loan: Loan, currentMonthBudget: number, strategyName: string) => {
+        const openingBalance = loan.loanAmount;
 
-        principalPart = Math.min(snowBallBudget, snowBallLoan.loanAmount);
+        if (openingBalance <= 0) {
+            return { updatedLoan: loan, updatedBudget: currentMonthBudget };
+        }
 
-        snowBallBudget -= principalPart;
-        const openingBalance = snowBallLoan.loanAmount;
-        const balance = snowBallLoan.loanAmount - principalPart;
+        if (currentMonthBudget <= 0) {
+            return { updatedLoan: loan, updatedBudget: currentMonthBudget };
+        }
 
-        snowBallLoan.loanAmount = balance;
-        forwardBalances[snowBallLoan.id] = balance;
+
+
+        const payment = Math.min(currentMonthBudget, openingBalance);
+        const principalPart = payment;
+        currentMonthBudget -= principalPart;
+        loan.loanAmount = openingBalance - principalPart;
 
         schedule.push({
-            id: snowBallLoan.id,
-            loanName: `****${SnowName}: ${snowBallLoan.loanName}`,
-            date: new Date(snowBallLoan.loanStartDate),
+            id: loan.id,
+            loanName: `****${strategyName}: ${loan.loanName}`,
+            date: new Date(loan.loanStartDate),
             loanAmount: openingBalance.toFixed(2),
             interestPart: '',
             principalPart: principalPart.toFixed(2),
             minimumPay: '',
-            balance: balance.toFixed(2),
-            remainingBudget: snowBallBudget.toFixed(2),
+            balance: loan.loanAmount.toFixed(2),
+            remainingBudget: currentMonthBudget.toFixed(2),
             snowBall: principalPart.toFixed(2),
             test: 'extrapay',
             remainingBalance: `${iterations} , ${countForLoop} , snowBall`
         });
-        return { snowBallBudget, doneLoan: snowBallLoan };
+        return { updatedLoan: { ...loan }, updatedBudget: currentMonthBudget };
     };
 
-    let earliestDate = findOldestLoan(loans).loanStartDate;
 
-    let currentMonth = new Date(earliestDate).getMonth();
+
+    // let oldestLoanDate = findOldestLoan(loans).loanStartDate;
+
+    // let currentMonth = new Date(oldestLoanDate).getMonth() + 1;
 
     const setOpeningBalance = (loan: Loan) => {
         let openingBalance = loan.loanAmount;
@@ -182,16 +191,13 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
     };
 
 
-    const processLoanPayment = (loan: LoanWithPosition, currentMonthBudget: number): { updatedLoan: LoanWithPosition | null, updatedBudget: number } => {
-
-
+    const processLoanPayment = (loan: Loan, currentMonthBudget: number, count: number): { updatedLoan: Loan | null, updatedBudget: number } => {
 
         const openingBalance = setOpeningBalance(loan);
 
-        if (openingBalance <= 0) {
-            return { updatedLoan: null, updatedBudget: currentMonthBudget };
-        }
-
+        // if (openingBalance <= 0) {
+        //     return { updatedLoan: loan, updatedBudget: currentMonthBudget };
+        // }
 
         const interestAmount = calculateMonthlyInterest(openingBalance, loan);
         const payment = Math.min(currentMonthBudget, loan.minimumPay, openingBalance + interestAmount);
@@ -202,7 +208,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
         schedule.push({
             id: loan.id,
-            loanName: loan.loanName,
+            loanName: `${loan.loanName}, ${count}, ${payment.toFixed(2)} `,
             date: new Date(loan.loanStartDate),
             loanAmount: openingBalance.toFixed(2),
             interestPart: interestAmount.toFixed(2),
@@ -213,11 +219,39 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
             snowBall: '',
             test: 'if statement',
             remainingBalance: loan.position,
+            // remainingBalance: loan.position,
+
         });
 
         return { updatedLoan: { ...loan }, updatedBudget: currentMonthBudget };
     };
 
+    ////////////////////////////////////////////////////
+    function filterLoansByMonth(loans: Loan[], currentMonth: number): Loan[] {
+        return loans.filter(loan => {
+            const loanMonth = new Date(loan.loanStartDate).getMonth(); // Get the loan's month (0-based)
+            return loan.loanAmount > 0 && loanMonth === currentMonth;  // Filter by loan amount and month
+        });
+    }
+
+
+    function updateLoanStartDates(loans: Loan[]): Loan[] {
+        return loans.map(loan => {
+            const newDate = new Date(loan.loanStartDate);
+            newDate.setMonth(newDate.getMonth() + 1); // Directly add one month to the loan start date
+            return {
+                ...loan,
+                loanStartDate: newDate
+            };
+        });
+    }
+
+
+
+
+
+
+    //////////////////////////////////////////////////
 
     loans.forEach(loan => {
         schedule.push({
@@ -229,7 +263,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
             principalPart: (0 - loan.loanAmount).toFixed(2),
             balance: loan.loanAmount.toFixed(2),
             remainingBudget: '',
-            loanAmount: loan.loanAmount.toFixed(2),
+            loanAmount: '',
             snowBall: '',
             test: '',
             remainingBalance: ''
@@ -237,166 +271,295 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
     });
 
 
-    while (loans.some(loan => loan.loanAmount > 0) && iterations < 50) {
-        earliestDate = findOldestLoan(loans).loanStartDate;
 
+    while (loans.some(loan => loan.loanAmount > 0) && iterations < 200) {
+        let oldestLoanDate = findOldestLoan(loans).loanStartDate;
+        let currentMonth = (new Date(oldestLoanDate).getMonth() + 1) % 12;
+        let loansForExtraPay: Loan[] = []
+        let currentMonthBudget = monthlyBudget;
 
         console.log(' ')
         console.log(' ')
-        console.log('Step 1:********************************************************************************while')
-        // console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth())
-        console.log('while:', iterations, ', for:', countForLoop)
+        console.log('Step 1:********************************************************************************while')//---------------
+        console.log(' currentMonth :', currentMonth, 'oldestLoan Month :', new Date(oldestLoanDate).getMonth() + 1, 'while:', iterations, ', for:', countForLoop)
+        console.log('')
 
-        for (let i = loans.length - 1; i >= 0 && ForLoopIterations < 100; i--) {
+        console.table(loans) // Print updated loans --------------------------------------------------------------------------
 
+        const dateUpdatedLoans = updateLoanStartDates(loans);  // Update loan start dates
 
-            console.log(' ')
-            console.log('Step 2:+++++++++++++++++++++++++++++++++++++++++++++++++++++++ while >for')
-            console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loans[i] Month', loans[i].loanStartDate.getMonth())
-            console.log(loans[i].loanName, loans[i].loanStartDate.toISOString().split('T')[0], loans[i].loanAmount)
-            console.log('while:', iterations, ', for:', countForLoop,)
-            console.log(' ')
+        // console.table(dateUpdatedLoans) // Print updated loans ---------------------------------------------------------------
 
+        const filteredLoans = filterLoansByMonth(dateUpdatedLoans, currentMonth); // Filter loans by month
 
-            if (loans[i].loanStartDate.toISOString().split('T')[0] === earliestDate.toISOString().split('T')[0]) {
+        // console.table(filteredLoans) // Print filtered loans --------------------------------------------------------------------
 
-                const loan = loans[i];
-                // loan.loanStartDate = addOneMonth(loan.loanStartDate);
+        let { sortedLoans, strategyName } = sortLoans(filteredLoans, strategy, sortConfig); // Sort loans
 
+        console.table(sortedLoans) // Print sorted loans -----------------------------------------------------------------------
 
-                console.log('Step 3:+++++++++++++++++++++++++++++++++++++++++++++ while >for > if')
-                console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
-                console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
-                console.log('while:', iterations, ', for:', countForLoop, 'loan month updated')
+        let count0 = 0;
+        sortedLoans.forEach((loan) => {
 
-                console.log(' ')
+            const { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget, count0);
+            currentMonthBudget = updatedBudget;
 
-                if (new Date(earliestDate).getMonth() == currentMonth) {
+            // if (updatedLoan) {
+            //     loans = loans.map((loan) => (loan.id === updatedLoan.id ? updatedLoan : loan))  // Update the loan if the id matches
+            //         .filter((loan) => loan.loanAmount > 0);  // Keep only loans with a positive balance
+            // }
 
-                    //
-                    //
-
-                    console.log('Step 4-A: if fffffffffffffffffffffffffffffffffff while >for > if > if')
-                    console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
-                    console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
-                    console.log('while:', iterations, ', for:', countForLoop)
-
-
-                    const position = `${iterations} , ${countForLoop} , if`;
-
-                    if (loan) {
-                        preSameMonth.push({
-                            ...loan,
-                            position: position
-                        });
-
-                    }
-
-
-
-                    // console.log(preSameMonth.map(loan => ({ loanName: loan.loanName, loanStartDate: loan.loanStartDate.toISOString().split('T')[0], loanAmount: loan.loanAmount })));
-                    console.table(preSameMonth)
-                    // loan.loanStartDate = addOneMonth(loan.loanStartDate); //test temporary
-
-                } else {
-
-
-                    // let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
-                    let sameMonth = []
-                    sameMonth = preSameMonth;
-
-                    // console.log('************** else')
-                    // console.table(sameMonth)
-
-
-                    preSameMonth = [];
-                    currentMonthBudget = monthlyBudget;
-                    currentMonth = new Date(earliestDate).getMonth();
-
-                    const position = `${iterations} , ${countForLoop} , else`;
-
-                    // if (loan) {
-                    //     preSameMonth.push({
-                    //         ...loan,
-                    //         position: position
-                    //     });
-                    // }
-
-                    console.log('Step 4-B: else eeeeeeeeeeeeeee while >for > if > if')
-                    console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
-                    console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
-                    console.log('while:', iterations, ', for:', countForLoop)
-
-                    console.log('**************preSameMonth else')
-                    console.table(preSameMonth)
-                    console.log(' ')
-                    console.log('**************sameMonth else')
-                    console.table(sameMonth)
-
-
-                    const afterSameMonth: LoanWithPosition[] = [];
-
-                    const { snowBallLoan } = sortLoans(sameMonth, strategy, sortConfig);
-
-                    snowBallLoan.forEach((loan) => {
-
-                        const { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget);
-                        currentMonthBudget = updatedBudget;
-
-                        if (updatedLoan) {
-                            afterSameMonth.push({ ...updatedLoan });
-                        }
-                    });
-
-
-
-                    while (currentMonthBudget > 0 && afterSameMonth.some(loan => loan.loanAmount > 0)) {
-
-                        const { snowBallLoan, SnowName } = sortLoans(afterSameMonth, strategy, sortConfig);
-
-                        const { snowBallBudget, doneLoan } = processSnowballLoan(snowBallLoan[0], currentMonthBudget, SnowName); // i want to use doneLoan below
-
-                        currentMonthBudget = snowBallBudget;
-
-                        // doneLoan.loanStartDate = addOneMonth(doneLoan.loanStartDate);
-
-                        if (doneLoan.loanAmount > 0) {
-                            loans[i] = doneLoan;
-                        }
-                        else {
-                            loans.splice(i, 1)[0]
-                        }
-
-
-
-                    }
-
-
-
-                }
+            if (updatedLoan) {
+                loansForExtraPay.push({
+                    ...updatedLoan,
+                });
             }
-            countForLoop++;
-            ForLoopIterations++
-        }
+            count0++
+        });
+
+        // let snowBallLoan = sortedLoans //temp
+        console.log('mid point  ')
+        // console.table(loans) // Print updated loans --------------------------------------------------------------------------
+
+        console.table(loansForExtraPay) // Print loans for extra payment --------------------------------------------------------------------
+
+        let { sortedLoans: snowBallLoan, strategyName: SnowName } = sortLoans(loansForExtraPay, strategy, sortConfig); // Sort loans
+
+        console.table(snowBallLoan) // Print sorted loans -----------------------------------------------------------------------
+
+
+        let count: number = 0
+        snowBallLoan.forEach(loan => {
+
+
+
+            // console.log('forEach', loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
+            console.log(loan.loanStartDate.toISOString().split('T')[0], 'loanName : *', loan.loanName, '* loanAmount :', loan.loanAmount, 'currentMonthBudget :', currentMonthBudget)
+
+            const { updatedLoan, updatedBudget } = processSnowballLoan(loan, currentMonthBudget, `${SnowName} ${count}`);
+
+            currentMonthBudget = updatedBudget;
+
+            if (updatedLoan) {
+                loans = loans.map((loan) => (loan.id === updatedLoan.id ? updatedLoan : loan))  // Update the loan if the id matches
+                    .filter((loan) => loan.loanAmount > 0);  // Keep only loans with a positive balance
+            }
+            count++
+        });
+
+
+
+        //  if (doneLoan.loanAmount > 0) {
+        //             loans[i] = doneLoan;
+        //         }
+        //         else {
+        //             loans.splice(i, 1)[0]
+        //         }
+
+
+
+        // snowBallLoan.forEach(loan => {
+
+        //     console.log('forEach', loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
+
+        //     const { snowBallBudget, doneLoan } = processSnowballLoan(snowBallLoan[0], currentMonthBudget, SnowName);
+        //     currentMonthBudget = snowBallBudget;
+
+        // });
+
+
+
+
+
+
+
+
+        // for (let i = snowBallLoan.length - 1; i >= 0; i--) {
+        //     let loan = snowBallLoan[i];
+        //     console.log('for loop', loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount) // Iterates from the last loan to the first loan
+        // }
+
+
+        // while (currentMonthBudget > 0 && afterSameMonth.some(loan => loan.loanAmount > 0)) {
+
+        //     const { snowBallLoan, SnowName } = sortLoans(afterSameMonth, strategy, sortConfig);
+
+        //     const { snowBallBudget, doneLoan } = processSnowballLoan(snowBallLoan[0], currentMonthBudget, SnowName); // i want to use doneLoan below
+
+        //     currentMonthBudget = snowBallBudget;
+
+        //     // doneLoan.loanStartDate = addOneMonth(doneLoan.loanStartDate);
+        // }
+
+
+
+
+
+        // for (let i = loans.length - 1; i >= 0 && ForLoopIterations < 100; i--) {
+
+
+        //     console.log(' ')
+        //     console.log('Step 2:+++++++++++++++++++++++++++++++++++++++++++++++++++++++ while >for')
+        //     console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loans[i] Month', loans[i].loanStartDate.getMonth())
+        //     console.log(loans[i].loanName, loans[i].loanStartDate.toISOString().split('T')[0], loans[i].loanAmount)
+        //     console.log('while:', iterations, ', for:', countForLoop,)
+        //     console.log(' ')
+
+
+        //     if (loans[i].loanStartDate.toISOString().split('T')[0] === earliestDate.toISOString().split('T')[0]) {
+
+        //         const loan = loans[i];
+        //         loan.loanStartDate = addOneMonth(loan.loanStartDate);
+
+
+        //         console.log('Step 3:+++++++++++++++++++++++++++++++++++++++++++++ while >for > if')
+        //         console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
+        //         console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
+        //         console.log('while:', iterations, ', for:', countForLoop, 'loan month updated')
+        //         console.log(' ')
+
+
+        //         if (new Date(earliestDate).getMonth() == currentMonth) {
+
+        //             //
+        //             //
+
+        //             console.log('Step 4-A: if fffffffffffffffffffffffffffffffffff while >for > if > if')
+        //             console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
+        //             console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
+        //             console.log('while:', iterations, ', for:', countForLoop)
+
+
+        //             const position = `${iterations} , ${countForLoop} , if`;
+
+        //             if (loan) {
+        //                 preSameMonth.push({
+        //                     ...loan,
+        //                     position: position
+        //                 });
+
+        //             }
+
+
+
+        //             // console.log(preSameMonth.map(loan => ({ loanName: loan.loanName, loanStartDate: loan.loanStartDate.toISOString().split('T')[0], loanAmount: loan.loanAmount })));
+        //             console.table(preSameMonth)
+        //             // loan.loanStartDate = addOneMonth(loan.loanStartDate); //test temporary
+
+        //         } else {
+
+
+        //             // let sameMonth = preSameMonth.filter(loan => loan.loanAmount > 0);
+        //             // let sameMonth = []
+        //             // sameMonth = preSameMonth;
+
+        //             // console.log('************** else')
+        //             // console.table(sameMonth)
+
+
+        //             // preSameMonth = [];
+        //             // currentMonthBudget = monthlyBudget;
+        //             // currentMonth = new Date(earliestDate).getMonth();
+
+        //             const position = `${iterations} , ${countForLoop} , else`;
+
+        //             // if (loan) {
+        //             //     preSameMonth.push({
+        //             //         ...loan,
+        //             //         position: position
+        //             //     });
+        //             // }
+
+
+        //             console.log('Step 4-B: else eeeeeeeeeeeeeee while >for > if > if')
+        //             console.log('earliestdate :', earliestDate.toISOString().split('T')[0], ', currentMonth :', currentMonth, ',new Date(earliestDate).getMonth():', new Date(earliestDate).getMonth(), ', loan Month', loan.loanStartDate.getMonth())
+        //             console.log(loan.loanName, loan.loanStartDate.toISOString().split('T')[0], loan.loanAmount)
+        //             console.log('while:', iterations, ', for:', countForLoop)
+
+        //             // console.log('**************preSameMonth else')
+        //             // console.table(preSameMonth)
+        //             // console.log(' ')
+        //             // console.log('**************sameMonth else')
+        //             // console.table(sameMonth)
+
+
+        //             const afterSameMonth: LoanWithPosition[] = [];
+
+        //             const { snowBallLoan } = sortLoans(preSameMonth, strategy, sortConfig);
+
+        //             snowBallLoan.forEach((loan) => {
+
+        //                 const { updatedLoan, updatedBudget } = processLoanPayment(loan, currentMonthBudget);
+        //                 currentMonthBudget = updatedBudget;
+
+        //                 if (updatedLoan) {
+        //                     afterSameMonth.push({ ...updatedLoan });
+        //                 }
+        //             });
+
+
+
+        // while (currentMonthBudget > 0 && afterSameMonth.some(loan => loan.loanAmount > 0)) {
+
+        //     const { snowBallLoan, SnowName } = sortLoans(afterSameMonth, strategy, sortConfig);
+
+        //     const { snowBallBudget, doneLoan } = processSnowballLoan(snowBallLoan[0], currentMonthBudget, SnowName); // i want to use doneLoan below
+
+        //     currentMonthBudget = snowBallBudget;
+
+        //     // doneLoan.loanStartDate = addOneMonth(doneLoan.loanStartDate);
+        // }
+        // if (doneLoan.loanAmount > 0) {
+        //     loans[i] = doneLoan;
+        // }
+        // else {
+        //     loans.splice(i, 1)[0]
+        // }
+
+
+
+        //             }
+
+
+
+        //         }
+        //     }
+        //     countForLoop++;
+        //     ForLoopIterations++
+        // }
+
+
+
+
+
+
+
+
         countForLoop = 0
         iterations++;
+
+
+
+
+
     }
 
-    schedule.sort((a: ScheduleEntry, b: ScheduleEntry) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const SortedSchedule = schedule.sort((a: ScheduleEntry, b: ScheduleEntry) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // let remainingBalance = 0;
-    // const finalData = schedule.map(item => {
-    //     let principal = parseFloat(item.principalPart);
-    //     remainingBalance -= principal;
-    //     if (remainingBalance < 0.1) remainingBalance = 0;
-    //     return {
-    //         ...item,
-    //         remainingBalance: remainingBalance.toFixed(2)
-    //     };
-    // });
+    let remainingBalance = 0;
+    const finalData = SortedSchedule.map(item => {
+        let principal = parseFloat(item.principalPart);
+        remainingBalance -= principal;
+        if (remainingBalance < 0.1) remainingBalance = 0;
+        return {
+            ...item,
+            remainingBalance: remainingBalance.toFixed(2)
+        };
+    });
 
-    // return finalData;
-    return schedule
+    console.table(finalData);
+    return finalData;
+    // return schedule
 };
 
 export default calculateAmortization;
