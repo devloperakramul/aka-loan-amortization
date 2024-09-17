@@ -1,4 +1,3 @@
-// src/app/page.tsx
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -7,7 +6,6 @@ import Link from 'next/link';
 import { FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import { sortLoansByStrategy } from '@/lib/strategy';
 
-// Loan interface to type the loans
 interface Loan {
   id: string;
   loanName: string;
@@ -36,13 +34,13 @@ const Home = () => {
 
 
   useEffect(() => {
-    const fetchLoans = async () => {
+    const fetchLoans = async (): Promise<void> => {
       try {
         const response = await fetch('/api/loans');
-        const result = await response.json();
-        setLoans(result.data);
+        const { data } = await response.json();
+        setLoans(data);
       } catch (error) {
-        console.error('Error fetching loans:', error);
+        console.error(error);
       }
     };
 
@@ -59,8 +57,6 @@ const Home = () => {
 
   }, []);
 
-
-
   useEffect(() => {
     const totalLoan: number = loans.reduce((sum, loan) => sum + +loan.loanAmount, 0);
     const totalInterest = loans.reduce((sum, loan) => sum + (loan.annualInterestRate !== undefined ? calculateMonthlyInterest(loan.annualInterestRate, loan.loanAmount) : 0), 0);
@@ -72,44 +68,49 @@ const Home = () => {
     setTotalEMI(totalEmi);
   }, [loans]);
 
-  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    setMonthlyBudget(value);
-    localStorage.setItem('monthlyBudget', value.toString());
+  const handleBudgetChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const monthlyBudget = parseFloat(event.target.value);
+    setMonthlyBudget(monthlyBudget);
+    localStorage.setItem('monthlyBudget', monthlyBudget.toString());
 
-    if (value < totalMonthlyInterest) {
-      setBudgetError('⚠️ Insufficient Budget: Your budget is less than the total monthly interest. Please increase your budget to cover the interest.');
+    const errorMessages: Record<string, string> = {
+      insufficientBudget: '⚠️ Insufficient Budget: Your budget is less than the total monthly interest. Please increase your budget to cover the interest.',
+      budgetBetweenInterestAndMinimum: "⚠️ Warning: Your budget is between the total monthly interest and the minimum payment. Aim to budget above the minimum payment for a healthier financial situation. ONLY SMART 'Avalanche' STRATEGIE CAN SAVE YOU",
+      budgetBelowEMI: '⚠️ Caution: Your budget is below the total EMI amount. Consider increasing your budget to avoid tight financial situations.',
+      budgetEqualsEMI: '✅ Great! Your budget matches the total EMI amount perfectly. Keep it up!',
+      budgetExceedsEMI: '🎉 Excellent! Your budget exceeds the total EMI amount. You’re in a good position.',
+    };
+
+    if (monthlyBudget < totalMonthlyInterest) {
+      setBudgetError(errorMessages.insufficientBudget);
       setBudgetErrorClass('text-red-700 text-xl font-bold');
-    } else if (value >= totalMonthlyInterest && value < totalMinimumMonthlyPay) {
-      setBudgetError('⚠️ Warning: Your budget is between the total monthly interest and the minimum payment. Aim to budget above the minimum payment for a healthier financial situation.');
+    } else if (monthlyBudget >= totalMonthlyInterest && monthlyBudget < totalMinimumMonthlyPay) {
+      setBudgetError(errorMessages.budgetBetweenInterestAndMinimum);
       setBudgetErrorClass('text-yellow-700 text-xl font-bold');
-    } else if (value >= totalMinimumMonthlyPay && value < totalEMI) {
-      setBudgetError('⚠️ Caution: Your budget is below the total EMI amount. Consider increasing your budget to avoid tight financial situations.');
+    } else if (monthlyBudget >= totalMinimumMonthlyPay && monthlyBudget < totalEMI) {
+      setBudgetError(errorMessages.budgetBelowEMI);
       setBudgetErrorClass('text-yellow-700 text-xl font-semibold');
-    } else if (value === totalEMI) {
-      setBudgetError('✅ Great! Your budget matches the total EMI amount perfectly. Keep it up!');
+    } else if (monthlyBudget === totalEMI) {
+      setBudgetError(errorMessages.budgetEqualsEMI);
       setBudgetErrorClass('text-green-600 text-xl font-bold');
-    } else if (value > totalEMI) {
-      setBudgetError('🎉 Excellent! Your budget exceeds the total EMI amount. You’re in a good position.');
+    } else if (monthlyBudget > totalEMI) {
+      setBudgetError(errorMessages.budgetExceedsEMI);
       setBudgetErrorClass('text-green-600 text-xl font-bold');
     } else {
       setBudgetError('');
       setBudgetErrorClass('');
     }
-
-  }
-
-  const handleStrategyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStrategy(e.target.value);
-    localStorage.setItem('strategy', e.target.value);
   };
 
+  const handleStrategyChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedStrategy = event.target.value;
+    setStrategy(selectedStrategy);
+    localStorage.setItem('strategy', selectedStrategy);
+  };
 
-
-
-  const openModal = (loan = null) => {
+  const openModal = (loan: Loan | null = null) => {
     setCurrentLoan(loan);
-    setIsEditing(!!loan);
+    setIsEditing(loan !== null);
     setIsModalOpen(true);
   };
 
@@ -120,111 +121,92 @@ const Home = () => {
   };
 
   const saveLoan = async (loan: Loan) => {
+    const method = isEditing ? 'PUT' : 'POST';
+    const url = isEditing && currentLoan ? `/api/loans/${currentLoan.id}` : '/api/loans';
+
     try {
-      const method = isEditing ? 'PUT' : 'POST';
-      // const url = isEditing ? `/api/loans/${currentLoan.id}` : '/api/loans';
-      const url = isEditing && currentLoan !== null ? `/api/loans/${currentLoan.id}` : '/api/loans';
       const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loan),
       });
 
       const result = await response.json();
       if (response.ok) {
-        // const updatedLoans = isEditing
-        //   ? loans.map((item) => (item.id === currentLoan.id ? result.result : item))
-        //   : [...loans, result.result];
         const updatedLoans = isEditing
-          ? loans.map((item) => (item.id === currentLoan?.id ? result.result : item))
-          : [...loans, result.result];
+          ? loans.map((item) => (item.id === currentLoan?.id ? result : item))
+          : [...loans, result];
         setLoans(updatedLoans);
         closeModal();
-      } else {
-        console.error('Error saving loan:', result);
       }
     } catch (error) {
       console.error('Error saving loan:', error);
     }
   };
 
-  const deleteLoan = async (id: string) => {
+  const deleteLoan = async (loanId: string) => {
     try {
-      await fetch(`/api/loans/${id}`, {
-        method: 'DELETE',
-      });
-      setLoans(loans.filter((loan) => loan.id !== id));
+      await fetch(`/api/loans/${loanId}`, { method: 'DELETE' });
+      setLoans((prevLoans) => prevLoans.filter((loan) => loan.id !== loanId));
     } catch (error) {
-      console.error('Error deleting loan:', error);
+      console.error(error);
     }
   };
 
-  // const formatDate = (dateString) => {
-  //   const options = { year: 'numeric', month: 'long', day: 'numeric' };
-  //   return new Date(dateString).toLocaleDateString(undefined, options);
-  // };
-  const formatDate = (dateString: string) => {
-    // const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: '2-digit' };
-    return new Date(dateString).toLocaleDateString(undefined, options);
+  const formatDate = (dateString: string): string => {
+    const formattingOptions: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    };
+
+    return new Date(dateString).toLocaleDateString(undefined, formattingOptions);
   };
 
-  const calculateMonthlyInterest = (annualInterestRate: number, loanAmount: number): number => {
-    const monthlyInterestRate = (annualInterestRate) / 12 / 100;
-    return (loanAmount) * monthlyInterestRate;
+  const calculateMonthlyInterest = (annualInterest: number, principal: number): number => (
+    (annualInterest / 12 / 100) * principal
+  );
+
+  const handleSort = (newKey: typeof sortConfig.key) => {
+    const newDirection = sortConfig.key === newKey && sortConfig.direction === 'ascending' ? 'descending' : 'ascending';
+    setSortConfig({ key: newKey, direction: newDirection });
+    localStorage.setItem('sortConfig', JSON.stringify({ key: newKey, direction: newDirection }));
   };
 
-  const handleSort = (key: typeof sortConfig.key) => {
-    let direction = 'ascending';
-    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-    localStorage.setItem('sortConfig', JSON.stringify({ key, direction }));
-  };
-
-  const handlePriorityChange = async (id: string, newPriority: number) => {
+  const handlePriorityChange = async (loanId: string, newPriority: number): Promise<void> => {
     try {
-      const response = await fetch(`/api/loans/${id}`, {
+      const response = await fetch(`/api/loans/${loanId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ priority: Number(newPriority) }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: newPriority }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update priority');
+        throw new Error('Failed to update loan priority');
       }
 
-      setLoans(loans.map((loan) => (loan.id === id ? { ...loan, priority: newPriority } : loan)));
+      setLoans(loans.map((loan) => (loan.id === loanId ? { ...loan, priority: newPriority } : loan)));
     } catch (error) {
-      console.error('Error updating priority:', error);
-    }
-  };
-  const handleMinimumPayChange = async (id: string, newMinimumPay: number) => {
-    try {
-      const response = await fetch(`/api/loans/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ minimumPay: Number(newMinimumPay) }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update priority');
-      }
-
-      setLoans(loans.map((loan) => (loan.id === id ? { ...loan, minimumPay: newMinimumPay } : loan)));
-    } catch (error) {
-      console.error('Error updating priority:', error);
+      console.error('Error updating loan priority:', error);
     }
   };
 
-  // Use the strategy-specific sorting function
+  const handleMinimumPayChange = async (loanId: string, newMinimumPay: number) => {
+    const response = await fetch(`/api/loans/${loanId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ minimumPay: newMinimumPay }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update minimum pay');
+    }
+
+    setLoans(
+      loans.map((loan) => (loan.id === loanId ? { ...loan, minimumPay: newMinimumPay } : loan))
+    );
+  };
+
   const sortedLoans = sortLoansByStrategy(loans, strategy, sortConfig);
 
   return (
@@ -243,7 +225,6 @@ const Home = () => {
             />
             {budgetError && <p className={`${budgetErrorClass} mt-0 absolute `}>{budgetError}</p>}
           </div>
-
           <div className="mb-4"> <button
             onClick={() => openModal()}
             className="bg-blue-500 text-white px-4 py-2 rounded-md mb-4"
@@ -251,7 +232,6 @@ const Home = () => {
             Add Loan
           </button> </div>
           <div className="mb-4 content-center">
-
             <label htmlFor="strategy" className="mr-2 pl-8">Strategy:</label>
             <select
               id="strategy"
@@ -272,7 +252,7 @@ const Home = () => {
           <table className="min-w-full bg-white border text-sm break-normal">
             <thead>
               <tr>
-                <th className="border px-4 py-2 w-16">#</th> {/* Serial Number Column */}
+                <th className="border px-4 py-2 w-16">#</th>
                 <th className="border px-4 py-2 w-56 cursor-pointer" onClick={() => handleSort('loanName')}>
                   Loan Name
                   {sortConfig.key === 'loanName' ? (
@@ -327,11 +307,9 @@ const Home = () => {
             <tbody>
               {sortedLoans.map((loan) => (
                 <tr key={loan.id}>
-                  <td className="border px-4 py-2">{loan.id}</td> {/* Serial Number Column */}
+                  <td className="border px-4 py-2">{loan.id}</td>
                   <td className="border px-4 py-2">
-                    <Link href={`/loans/${loan.id}`}>
-                      {loan.loanName}
-                    </Link>
+                    <Link href={`/loans/${loan.id}`}>{loan.loanName}</Link>
                   </td>
                   <td className="border px-4 py-2">{loan.loanAmount}</td>
                   <td className="border px-4 py-2">{loan.annualInterestRate}</td>
@@ -339,26 +317,23 @@ const Home = () => {
                     {calculateMonthlyInterest(loan.annualInterestRate, loan.loanAmount).toFixed(2)}
                   </td>
                   <td className="border px-4 py-2">{loan.emiAmount}</td>
-                  <td className="border px-4 py-2"><input
-                    type="text"
-                    value={loan.minimumPay}
-                    onChange={(e) => handleMinimumPayChange(loan.id, Number(e.target.value))}
-                    className="w-full border border-gray-300 p-1 rounded"
-                  /></td>
-
+                  <td className="border px-4 py-2">
+                    <input
+                      type="text"
+                      value={loan.minimumPay}
+                      onChange={(e) => handleMinimumPayChange(loan.id, Number(e.target.value))}
+                      className="w-full border border-gray-300 p-1 rounded"
+                    />
+                  </td>
                   <td className="border px-4 py-2">{formatDate(loan.loanStartDate)}</td>
-                  {/*  */}
                   <td className="border px-4 py-2">
                     <div className="flex items-center">
                       <button
-                        onClick={() => {
-                          const newValue = Math.max(Number(loan.priority) - 1, -10);
-                          handlePriorityChange(loan.id, newValue);
-                        }}
+                        onClick={() => handlePriorityChange(loan.id, Math.max(Number(loan.priority) - 1, -10))}
                         className="text-gray-500 hover:text-blue-600 bg-gray-200 p-2 rounded-l-md"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 12H5"></path>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 12H5" />
                         </svg>
                       </button>
                       <input
@@ -375,55 +350,38 @@ const Home = () => {
                         max="50"
                       />
                       <button
-                        onClick={() => {
-                          const newValue = Math.min(Number(loan.priority) + 1, 20);
-                          handlePriorityChange(loan.id, newValue);
-                        }}
+                        onClick={() => handlePriorityChange(loan.id, Math.min(Number(loan.priority) + 1, 20))}
                         className="text-gray-500 hover:text-blue-600 bg-gray-200 p-2 rounded-r-md"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v14m7-7H5"></path>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v14m7-7H5" />
                         </svg>
                       </button>
                     </div>
                   </td>
-
-
-                  {/*  */}
                   <td className="border px-4 py-2 w-36">
-                    <button
-                      onClick={() => openModal(loan)}
-                      className="bg-yellow-500 text-white px-2 py-1 rounded-md mr-2 w-14 break-keep"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deleteLoan(loan.id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded-md w-14 break-keep"
-                    >
-                      Delete
-                    </button>
+                    <button onClick={() => openModal(loan)} className="bg-yellow-500 text-white px-2 py-1 rounded-md mr-2 w-14 break-keep">Edit</button>
+                    <button onClick={() => deleteLoan(loan.id)} className="bg-red-500 text-white px-2 py-1 rounded-md w-14 break-keep">Delete</button>
                   </td>
                 </tr>
               ))}
-
             </tbody>
             <tfoot>
               <tr className="bg-gray-100 font-bold">
                 <td>Total</td>
-                <td></td>
+                <td />
                 <td>{totalLoan}</td>
-                <td></td>
+                <td />
                 <td>{totalMonthlyInterest.toFixed(2)}</td>
                 <td>{totalEMI.toFixed(2)}</td>
                 <td>{totalMinimumMonthlyPay.toFixed(2)}</td>
-                <td></td>
+                <td />
               </tr>
             </tfoot>
           </table>
+
         </div>
       </div>
-
       {isModalOpen && (
         <LoanForm
           loan={currentLoan}

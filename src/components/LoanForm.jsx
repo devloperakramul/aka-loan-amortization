@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const LoanForm = ({ loan, onSave, onClose }) => {
     const [loanForm, setLoanForm] = useState({
@@ -13,12 +13,11 @@ const LoanForm = ({ loan, onSave, onClose }) => {
     const [errors, setErrors] = useState({});
     const [monthlyInterest, setMonthlyInterest] = useState(0);
 
-    // Function to format date into YYYY-MM-DD
-    const formatDate = (date) => {
-        return date ? new Date(date).toISOString().split('T')[0] : '';
-    };
+    const formatDate = React.useCallback(
+        (date) => (date ? new Date(date).toJSON().slice(0, 10) : ''),
+        []
+    );
 
-    // Update form state when loan prop changes
     useEffect(() => {
         if (loan) {
             setLoanForm({
@@ -39,7 +38,6 @@ const LoanForm = ({ loan, onSave, onClose }) => {
         }
     }, [loan]);
 
-    // Recalculate monthly interest whenever loanAmount or annualInterestRate changes
     useEffect(() => {
         const amount = parseFloat(loanForm.loanAmount);
         const annualRate = parseFloat(loanForm.annualInterestRate);
@@ -53,32 +51,27 @@ const LoanForm = ({ loan, onSave, onClose }) => {
         }
     }, [loanForm.loanAmount, loanForm.annualInterestRate]);
 
-    // Handle form input changes
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setLoanForm({ ...loanForm, [name]: value });
-    };
+    const handleInputChange = ({ target: { name, value } }) =>
+        setLoanForm((prevState) => ({ ...prevState, [name]: value }));
 
-    // Validate form data
     const validateForm = () => {
-        const { loanAmount, emiAmount } = loanForm;
-        let newErrors = {};
+        const { loanAmount: currentLoanAmount, emiAmount: currentEmiAmount } = loanForm;
+        const errors = {};
         let isValid = true;
 
-        // Validation logic
-        if (parseFloat(loanAmount) <= parseFloat(emiAmount)) {
-            newErrors.loanAmount = 'Loan amount must be greater than the EMI amount.';
+        if (Number(currentLoanAmount) <= Number(currentEmiAmount)) {
+            errors.loanAmount = 'Loan amount must be greater than the EMI amount.';
             isValid = false;
         }
-
-        setErrors(newErrors);
+        setErrors(errors);
         return isValid;
     };
 
-    // Handle form submission
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (validateForm()) {
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        const isValid = validateForm();
+        if (isValid) {
             onSave(loanForm);
             onClose();
         }
