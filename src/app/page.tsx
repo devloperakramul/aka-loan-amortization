@@ -135,7 +135,7 @@ const Home = () => {
       if (response.ok) {
         const updatedLoans = isEditing
           ? loans.map((item) => (item.id === currentLoan?.id ? result : item))
-          : [...loans, result];
+          : [...loans, result.result];
         setLoans(updatedLoans);
         closeModal();
       }
@@ -394,3 +394,7 @@ const Home = () => {
 }
 
 export default Home;
+
+
+
+

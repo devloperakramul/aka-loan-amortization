@@ -13,10 +13,9 @@ const LoanForm = ({ loan, onSave, onClose }) => {
     const [errors, setErrors] = useState({});
     const [monthlyInterest, setMonthlyInterest] = useState(0);
 
-    const formatDate = React.useCallback(
-        (date) => (date ? new Date(date).toJSON().slice(0, 10) : ''),
-        []
-    );
+    const formatDate = (date) => {
+        return date ? new Date(date).toISOString().split('T')[0] : '';
+    };
 
     useEffect(() => {
         if (loan) {
