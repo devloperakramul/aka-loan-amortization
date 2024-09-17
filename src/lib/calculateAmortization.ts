@@ -174,7 +174,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
     function updateLoanStartDates(loans: Loan[]): Loan[] {
         return loans.map(loan => {
             const newDate = new Date(loan.loanStartDate);
-            newDate.setMonth(newDate.getMonth() + 1); // Directly add one month to the loan start date
+            newDate.setMonth(newDate.getMonth() + 1);
             return {
                 ...loan,
                 loanStartDate: newDate
@@ -199,14 +199,13 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
     });
 
     while (loans.some(loan => loan.loanAmount > 0) && iterations < 200) {
-        let oldestLoanDate = findOldestLoan(loans).loanStartDate;
-        let currentMonth = (new Date(oldestLoanDate).getMonth() + 1) % 12;
-        let loansForExtraPay: Loan[] = []
+        const oldestLoanDate = findOldestLoan(loans).loanStartDate;
+        const currentMonth = (new Date(oldestLoanDate).getMonth() + 1) % 12;
+        const loansForExtraPay: Loan[] = []
         let currentMonthBudget = monthlyBudget;
         const dateUpdatedLoans = updateLoanStartDates(loans);
         const filteredLoans = filterLoansByMonth(dateUpdatedLoans, currentMonth);
-        let { sortedLoans } = sortLoans(filteredLoans, strategy, sortConfig);
-        console.table(sortedLoans)
+        const { sortedLoans } = sortLoans(filteredLoans, strategy, sortConfig);
         let count0 = 0;
         sortedLoans.forEach((loan) => {
 
@@ -221,15 +220,15 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
             count0++
         });
 
-        let { sortedLoans: snowBallLoan, strategyName: SnowName } = sortLoans(loansForExtraPay, strategy, sortConfig); // Sort loans
+        const { sortedLoans: snowBallLoan, strategyName: SnowName } = sortLoans(loansForExtraPay, strategy, sortConfig);
 
         let count: number = 0
         snowBallLoan.forEach(loan => {
             const { updatedLoan, updatedBudget } = processSnowballLoan(loan, currentMonthBudget, `${SnowName} ${count}`);
             currentMonthBudget = updatedBudget;
             if (updatedLoan) {
-                loans = loans.map((loan) => (loan.id === updatedLoan.id ? updatedLoan : loan))  // Update the loan if the id matches
-                    .filter((loan) => loan.loanAmount > 0);  // Keep only loans with a positive balance
+                loans = loans.map((loan) => (loan.id === updatedLoan.id ? updatedLoan : loan))
+                    .filter((loan) => loan.loanAmount > 0);
             }
             count++
         });
@@ -241,7 +240,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
     let remainingBalance = 0;
     const finalData = SortedSchedule.map(item => {
-        let principal = parseFloat(item.principalPart);
+        const principal = parseFloat(item.principalPart);
         remainingBalance -= principal;
         if (remainingBalance < 0.1) remainingBalance = 0;
         return {
