@@ -120,7 +120,7 @@ const Page = () => {
                             <th className="px-4 py-2 border-b">Minimum Pay </th>
                             <th className="px-4 py-2 border-b">Interest</th>
                             <th className="px-4 py-2 border-b">Snow Ball </th>
-                            <th className="px-4 py-2 border-b">remainingBudget</th>
+                            <th className="px-4 py-2 border-b">Payment</th>
                             <th className="px-4 py-2 border-b">Principal</th>
                             <th className="px-4 py-2 border-b">Loan Balance</th>
                             <th className="px-4 py-2 border-b">Remaining Loans</th>
@@ -136,7 +136,7 @@ const Page = () => {
                                 <td className="px-4 py-2 border-b">{payment.minimumPay}</td>
                                 <td className="px-4 py-2 border-b">{payment.interestPart}</td>
                                 <td className="px-4 py-2 border-b">{payment.snowBall}</td>
-                                <td className="px-4 py-2 border-b">{payment.remainingBudget}</td>
+                                <td className="px-4 py-2 border-b">{payment.payment}</td>
                                 <td className="px-4 py-2 border-b">{payment.principalPart}</td>
                                 <td className="px-4 py-2 border-b">{payment.balance}</td>
                                 <td className="px-4 py-2 border-b">{payment.remainingBalance}</td>
