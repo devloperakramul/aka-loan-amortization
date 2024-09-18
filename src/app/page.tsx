@@ -134,7 +134,7 @@ const Home = () => {
       const result = await response.json();
       if (response.ok) {
         const updatedLoans = isEditing
-          ? loans.map((item) => (item.id === currentLoan?.id ? result : item))
+          ? loans.map((item) => (item.id === currentLoan?.id ? result.result : item))
           : [...loans, result.result];
         setLoans(updatedLoans);
         closeModal();

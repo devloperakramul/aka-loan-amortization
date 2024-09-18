@@ -173,14 +173,20 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
 
     function updateLoanStartDates(loans: Loan[]): Loan[] {
         return loans.map(loan => {
-            const newDate = new Date(loan.loanStartDate);
-            newDate.setMonth(newDate.getMonth() + 1);
+            const newDate = new Date(loan.loanStartDate.getTime());
+            const originalMonth = newDate.getMonth();
+            newDate.setMonth(originalMonth + 1);
+            if (newDate.getMonth() !== (originalMonth + 1) % 12) {
+                newDate.setDate(0);
+            }
+
             return {
                 ...loan,
                 loanStartDate: newDate
             };
         });
     }
+
 
     loans.forEach(loan => {
         schedule.push({
@@ -198,7 +204,7 @@ const calculateAmortization = (loans: Loan[], monthlyBudget: number, strategy: s
         });
     });
 
-    while (loans.some(loan => loan.loanAmount > 0) && iterations < 200) {
+    while (loans.some(loan => loan.loanAmount > 0) && iterations < 10000) {
         const oldestLoanDate = findOldestLoan(loans).loanStartDate;
         const currentMonth = (new Date(oldestLoanDate).getMonth() + 1) % 12;
         const loansForExtraPay: Loan[] = []

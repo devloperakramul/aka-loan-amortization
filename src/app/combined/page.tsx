@@ -1,4 +1,4 @@
-//src/app/combined/page.jsx
+//src/app/combined/page.tsx
 
 'use client';
 
